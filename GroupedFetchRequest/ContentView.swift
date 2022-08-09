@@ -10,79 +10,64 @@ import CoreData
 
 struct ContentView: View {
     @Environment(\.managedObjectContext) private var viewContext
-
-    @FetchRequest(
-        sortDescriptors: [NSSortDescriptor(keyPath: \Item.timestamp, ascending: true)],
-        animation: .default)
-    private var items: FetchedResults<Item>
+    
+    @SectionedFetchRequest<String, Item>(
+        sectionIdentifier: \.categoryText,
+        sortDescriptors: [SortDescriptor(\.category, order: .reverse)]
+    )
+    private var itemSections: SectionedFetchResults<String, Item>
+    
+    @State private var userEnteredCategory: Int16 = 0
+    @State private var userEnteredContent: String = ""
 
     var body: some View {
-        NavigationView {
-            List {
-                ForEach(items) { item in
-                    NavigationLink {
-                        Text("Item at \(item.timestamp!, formatter: itemFormatter)")
-                    } label: {
-                        Text(item.timestamp!, formatter: itemFormatter)
+        
+        NavigationStack {
+            
+            Form {
+                
+                Section("Add new item") {
+                    Picker("Category", selection: $userEnteredCategory) {
+                        ForEach(CelestialBodyType.allCases, id: \.self.rawValue) { typeCase in
+                            Text(typeCase.getDisplayName())
+                                .id(typeCase.rawValue)
+                        }
+                    }
+                    TextField("Name", text: $userEnteredContent)
+                    Button("Create") {
+                        let newRecord = Item(context: viewContext)
+                        newRecord.content = self.userEnteredContent
+                        newRecord.category = self.userEnteredCategory
+                        try? viewContext.save()
                     }
                 }
-                .onDelete(perform: deleteItems)
-            }
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    EditButton()
-                }
-                ToolbarItem {
-                    Button(action: addItem) {
-                        Label("Add Item", systemImage: "plus")
+                
+                ForEach(itemSections) { itemSection in
+                    Section(itemSection.id) {
+                        ForEach(itemSection) { itemEntry in
+                            VStack(alignment: .leading) {
+                                Text(itemEntry.content ?? "")
+                                    .font(.headline)
+                                Text(itemEntry.categoryText)
+                            }
+                        }
                     }
                 }
+                
             }
-            Text("Select an item")
+            
         }
+        
     }
 
-    private func addItem() {
-        withAnimation {
-            let newItem = Item(context: viewContext)
-            newItem.timestamp = Date()
-
-            do {
-                try viewContext.save()
-            } catch {
-                // Replace this implementation with code to handle the error appropriately.
-                // fatalError() causes the application to generate a crash log and terminate. You should not use this function in a shipping application, although it may be useful during development.
-                let nsError = error as NSError
-                fatalError("Unresolved error \(nsError), \(nsError.userInfo)")
-            }
-        }
-    }
-
-    private func deleteItems(offsets: IndexSet) {
-        withAnimation {
-            offsets.map { items[$0] }.forEach(viewContext.delete)
-
-            do {
-                try viewContext.save()
-            } catch {
-                // Replace this implementation with code to handle the error appropriately.
-                // fatalError() causes the application to generate a crash log and terminate. You should not use this function in a shipping application, although it may be useful during development.
-                let nsError = error as NSError
-                fatalError("Unresolved error \(nsError), \(nsError.userInfo)")
-            }
-        }
-    }
 }
 
-private let itemFormatter: DateFormatter = {
-    let formatter = DateFormatter()
-    formatter.dateStyle = .short
-    formatter.timeStyle = .medium
-    return formatter
-}()
-
-struct ContentView_Previews: PreviewProvider {
-    static var previews: some View {
-        ContentView().environment(\.managedObjectContext, PersistenceController.preview.container.viewContext)
+extension Item {
+    @objc
+    var categoryText: String {
+        guard let typeObj = CelestialBodyType(rawValue: self.category) else {
+            return "Unknown"
+        }
+        return typeObj.getDisplayName()
     }
 }
