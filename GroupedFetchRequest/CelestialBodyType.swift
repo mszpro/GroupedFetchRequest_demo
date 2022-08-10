@@ -15,13 +15,13 @@ enum CelestialBodyType: Int16, CaseIterable {
     func getDisplayName() -> String {
         switch self {
         case .planet:
-            return "Planet"
+            return "惑星"
         case .star:
-            return "Star"
+            return "恒星"
         case .moon:
-            return "Moon"
+            return "衛星"
         case .blackHole:
-            return "Black Hole"
+            return "ブラックホール"
         }
     }
 }
